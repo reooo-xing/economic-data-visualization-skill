@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+
+# 生成的输出（可随时重新生成；如需提交示例报告，删除下一行）
+output/
+
+# 用户上传的原始数据（不提交；示例数据在 assets/ 下）
+data/
+
+# 编辑器 / 系统
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

@@ -1,0 +1,16 @@
+# economic-data-visualization-skill 依赖
+# 建议 Python >= 3.9
+
+# ---- 核心（必装） ----
+pandas>=2.0           # 数据读取、清洗、聚合（已在 pandas 2.x 与 3.1 上验证）
+numpy>=1.24,<3.0      # 数值计算
+openpyxl>=3.1         # 读取 .xlsx / .xlsm
+plotly>=5.18          # 交互式图表 + 独立 HTML 报告（核心可视化）
+
+# ---- 交互式网页（推荐） ----
+streamlit>=1.45       # 交互式可视化网页（generate_html_report.py；width="stretch" 需 >=1.45）
+
+# ---- 可选（按需安装） ----
+pyecharts>=2.0        # 可选：ECharts 风格交互图表。本 Skill 默认用 Plotly，不装也能运行
+jinja2>=3.1           # 可选：自定义 HTML 报告模板（当前脚本未依赖，保留以备扩展）
+xlrd>=2.0             # 可选：读取旧版 .xls 文件
