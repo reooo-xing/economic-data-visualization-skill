@@ -5,23 +5,27 @@
 （read → clean → metrics → charts），把结果缓存到 st.session_state，
 后续切换页面复用缓存，避免重复计算。
 
-运行：streamlit run scripts/Home.py
+运行：streamlit run Home.py
 """
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 
 import streamlit as st
 
-from read_data import read_file, detect_fields
+# 让入口能 import utils/ 下的模块（read_data / clean_data / calculate_metrics / generate_charts / ui_helpers）
+PROJECT_ROOT = Path(__file__).resolve().parent
+sys.path.insert(0, str(PROJECT_ROOT / "utils"))
+
+from read_data import detect_fields, find_default_data_file, read_file
 from clean_data import clean
 from calculate_metrics import compute_metrics
 from generate_charts import build_figures
 from ui_helpers import UI_CSS
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
-DEFAULT_DATA = PROJECT_ROOT / "assets" / "sample_data.csv"
-PAGES_DIR = Path(__file__).resolve().parent / "pages"
+DEFAULT_DATA = find_default_data_file(PROJECT_ROOT)
+PAGES_DIR = PROJECT_ROOT / "pages"
 
 st.set_page_config(page_title="经济数据可视化分析系统", layout="wide", page_icon="📊")
 
@@ -112,7 +116,7 @@ def render_home() -> None:
     st.markdown("#### 使用左侧导航切换到各页面 👈")
 
 
-# 定义页面：首页用函数，其余页面用文件路径（放在 scripts/pages/）。
+# 定义页面：首页用函数，其余页面用文件路径（放在 pages/）。
 home_page = st.Page(render_home, title="首页", icon="🏠", default=True)
 dashboard_page = st.Page(str(PAGES_DIR / "1_数据看板.py"), title="数据看板", icon="📊")
 diagnosis_page = st.Page(str(PAGES_DIR / "2_AI诊断报告.py"), title="AI 诊断报告", icon="🤖")

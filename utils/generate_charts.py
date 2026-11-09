@@ -23,9 +23,10 @@ from plotly.offline import get_plotlyjs
 
 from calculate_metrics import compute_metrics
 from clean_data import clean
-from read_data import DIMENSION_FIELDS, read_file
+from read_data import DIMENSION_FIELDS, find_default_data_file, read_file
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
+DEFAULT_DATA = find_default_data_file(PROJECT_ROOT)
 
 # ---------------------------------------------------------------------------
 # 调色板：取自 dataviz 参考调色板（已校验的分类色固定顺序，禁止循环生成）。
@@ -223,11 +224,11 @@ def save_html_report(figures: dict, out_path: Path, title: str = "销售数据�
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description="生成交互式图表与 HTML 报告")
-    ap.add_argument("path", nargs="?", default=None, help="数据文件路径（缺省使用 assets/sample_data.csv）")
+    ap.add_argument("path", nargs="?", default=None, help="数据文件路径（缺省自动选择 assets/data 下的首个可用文件）")
     ap.add_argument("-o", "--out", default=None, help="HTML 报告输出路径（默认 output/report.html）")
     args = ap.parse_args(argv)
 
-    path = args.path or str(PROJECT_ROOT / "assets" / "sample_data.csv")
+    path = args.path or str(DEFAULT_DATA)
     df = read_file(path)
     cleaned, report = clean(df)
     if "error" in report:

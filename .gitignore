@@ -6,11 +6,20 @@ __pycache__/
 venv/
 env/
 
+# 环境变量与密钥（绝不提交）
+.env
+.streamlit/secrets.toml
+
 # 生成的输出（可随时重新生成；如需提交示例报告，删除下一行）
 output/
 
-# 用户上传的原始数据（不提交；示例数据在 assets/ 下）
-data/
+# 用户上传的原始数据（不提交）
+data/*
+# 保留示例数据（模拟数据，可提交）
+!data/sample_data.csv
+
+# 本地真实业务数据目录（不提交）
+assets/
 
 # 编辑器 / 系统
 .vscode/

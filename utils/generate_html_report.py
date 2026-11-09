@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """generate_html_report.py — 自定义多图表生成器（Streamlit）。
 
-运行：streamlit run scripts/generate_html_report.py
+运行：streamlit run utils/generate_html_report.py
 
 功能：
 - 顶部下拉框选择数据文件（CSV，可上传到 data/）；
@@ -20,7 +20,7 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from generate_charts import BASELINE, FONT, GRID, INK, MUTED, SALES_COLOR, SECONDARY_INK, SERIES, SURFACE, _style
-from read_data import read_file
+from read_data import find_default_data_file, read_file
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
@@ -33,17 +33,20 @@ st.set_page_config(page_title="自定义多图表生成器", layout="wide")
 # ---------------------------------------------------------------------------
 # 工具函数
 # ---------------------------------------------------------------------------
-def discover_csv_files() -> list[Path]:
-    """发现项目内可选的 CSV 文件（assets/、data/、项目根目录）。"""
+def discover_data_files() -> list[Path]:
+    """发现项目内可选的 Excel / CSV 文件（assets/、data/、项目根目录）。"""
     found: set[Path] = set()
     for d in (PROJECT_ROOT / "assets", PROJECT_ROOT / "data", PROJECT_ROOT):
         if d.is_dir():
-            found.update(p for p in d.glob("*.csv") if p.is_file())
+            found.update(
+                p for p in d.iterdir()
+                if p.is_file() and p.suffix.lower() in {".csv", ".xlsx", ".xls", ".xlsm"}
+            )
     return sorted(found, key=lambda p: str(p).lower())
 
 
 def save_uploaded(uploaded) -> Path:
-    """把上传的 CSV 保存到 data/，返回保存路径。"""
+    """把上传的 Excel / CSV 保存到 data/，返回保存路径。"""
     data_dir = PROJECT_ROOT / "data"
     data_dir.mkdir(exist_ok=True)
     dest = data_dir / uploaded.name
@@ -186,7 +189,7 @@ def main() -> None:
     # ---- 侧边栏：上传（保存到 data/，加入下拉框） ----
     with st.sidebar:
         st.header("上传数据")
-        up = st.file_uploader("上传 CSV（保存到 data/）", type=["csv"])
+        up = st.file_uploader("上传 CSV / Excel（保存到 data/）", type=["csv", "xlsx", "xls"])
         if up is not None:
             sig = f"{up.name}:{len(up.getvalue())}"
             if st.session_state.get("processed_upload") != sig:
@@ -196,18 +199,18 @@ def main() -> None:
                 st.session_state["current_file"] = None  # 触发重置
                 st.rerun()
 
-    # ---- 顶部：选择数据文件（CSV）下拉框 ----
-    files = discover_csv_files()
+    # ---- 顶部：选择数据文件（CSV / Excel）下拉框 ----
+    files = discover_data_files()
     if not files:
-        st.error("未找到 CSV 文件。请上传，或在 assets/ 放入 CSV。")
+        st.error("未找到可用数据文件。请上传，或在 assets/ 放入 CSV / Excel。")
         st.stop()
 
     options = [str(f) for f in files]
-    default_path = str(PROJECT_ROOT / "assets" / "sample_data.csv")
+    default_path = str(find_default_data_file(PROJECT_ROOT))
     default_idx = options.index(default_path) if default_path in options else 0
 
     file_str = st.selectbox(
-        "选择数据文件（CSV）",
+        "选择数据文件（CSV / Excel）",
         options=options,
         format_func=lambda s: str(Path(s).relative_to(PROJECT_ROOT)),
         index=default_idx,

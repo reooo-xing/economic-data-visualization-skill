@@ -2,7 +2,7 @@
 name: economic-data-visualization-skill
 description: >
   品牌商品流水数据整理与可视化 Agent。当用户提到经济数据分析、数据清洗、销售数据
-  可视化、生成图表或可交互网页时触发：读取 assets/ 下的数据，自动完成字段识别、
+  可视化、生成图表或可交互网页时触发：读取 data/ 下的数据，自动完成字段识别、
   数据清洗、指标计算与图表生成，并启动 Streamlit 页面展示结果。
 version: "1.1"
 ---
@@ -26,7 +26,7 @@ version: "1.1"
 
 典型触发语句：
 
-- 「帮我分析 assets 下的数据」
+- 「帮我分析 data 下的数据」
 - 「清洗这份销售流水并生成图表」
 - 「计算销售额、客单价和地区排行」
 
@@ -34,34 +34,34 @@ version: "1.1"
 
 AI 按以下步骤执行：
 
-1. **读取数据**：读取 `assets/` 下的数据文件（默认 `assets/sample_data.csv`）；
-   如用户指定了其它路径，读取用户提供的文件（`scripts/read_data.py` 的 `read_file()`）。
+1. **读取数据**：读取 `data/` 下的数据文件（自动选取 `data/` / `assets/` 或根目录中的首个可用 CSV / Excel 文件）；
+   如用户指定了其它路径，读取用户提供的文件（`utils/read_data.py` 的 `read_file()`）。
 2. **字段识别**：自动识别日期、商品名称、SKU、单价、数量、销售额、渠道、门店、
    地区、订单号等字段（`detect_fields()`），规则见 `references/FIELD_RULES.md`。
    **核心字段（日期 / 销售额）缺失或识别置信度低时，先向用户确认字段映射，不得强行计算。**
-3. **清洗**：调用 `scripts/clean_data.py` 的 `clean()`。
-4. **指标计算**：调用 `scripts/calculate_metrics.py` 的 `compute_metrics()`。
-5. **图表生成**：调用 `scripts/generate_charts.py` 的 `build_figures()`。
-6. **启动可视化页面**：运行 `streamlit run scripts/app.py`，浏览器自动打开，
+3. **清洗**：调用 `utils/clean_data.py` 的 `clean()`。
+4. **指标计算**：调用 `utils/calculate_metrics.py` 的 `compute_metrics()`。
+5. **图表生成**：调用 `utils/generate_charts.py` 的 `build_figures()`。
+6. **启动可视化页面**：运行 `streamlit run Home.py`，浏览器自动打开，
    以「左侧图表 + 右侧指标与 AI 诊断报告」展示结果。
 
 > 也可逐脚本在命令行执行：
-> `python scripts/read_data.py assets/sample_data.csv` →
-> `python scripts/clean_data.py assets/sample_data.csv` →
-> `python scripts/calculate_metrics.py assets/sample_data.csv` →
-> `python scripts/generate_charts.py assets/sample_data.csv`。
+> `python utils/read_data.py "data/你的数据.xlsx"` →
+> `python utils/clean_data.py "data/你的数据.xlsx"` →
+> `python utils/calculate_metrics.py "data/你的数据.xlsx"` →
+> `python utils/generate_charts.py "data/你的数据.xlsx"`。
 
 ## 3. 资源说明（Resources）
 
 | 资源 | 路径 | 说明 |
 |------|------|------|
 | 字段识别与指标口径 | `references/FIELD_RULES.md` | 字段同义词、金额单位识别、指标计算口径、边界情况 |
-| 示例数据 | `assets/sample_data.csv` | 模拟销售流水（3 个月，6 商品 / 5 渠道 / 6 门店 / 4 地区），仅演示用 |
-| 数据读取与字段识别 | `scripts/read_data.py` | `read_file()` / `detect_fields()` / `available_fields()` / `overview()` |
-| 数据清洗 | `scripts/clean_data.py` | `clean(df) -> (cleaned, report)`，`report["error"]` 表示核心字段缺失 |
-| 指标计算 | `scripts/calculate_metrics.py` | `compute_metrics(cleaned) -> dict`，`"__error__"` 表示计算中止 |
-| 图表生成 | `scripts/generate_charts.py` | `build_figures(metrics) -> dict[str, Figure]` |
-| **总控应用** | `scripts/app.py` | Streamlit 页面，串联全流程（左图表 / 右指标 + 诊断报告） |
+| 示例数据 | `data/sample_data.csv` | 模拟销售流水（3 个月，6 商品 / 5 渠道 / 6 门店 / 4 地区），仅演示用 |
+| 数据读取与字段识别 | `utils/read_data.py` | `read_file()` / `detect_fields()` / `available_fields()` / `overview()` |
+| 数据清洗 | `utils/clean_data.py` | `clean(df) -> (cleaned, report)`，`report["error"]` 表示核心字段缺失 |
+| 指标计算 | `utils/calculate_metrics.py` | `compute_metrics(cleaned) -> dict`，`"__error__"` 表示计算中止 |
+| 图表生成 | `utils/generate_charts.py` | `build_figures(metrics) -> dict[str, Figure]` |
+| **总控应用** | `Home.py` | Streamlit 页面，串联全流程（左图表 / 右指标 + 诊断报告） |
 
 ## 4. 脚本接口（供 AI 调用）
 
@@ -73,7 +73,7 @@ from clean_data import clean
 from calculate_metrics import compute_metrics
 from generate_charts import build_figures, save_html_report
 
-df = read_file("assets/sample_data.csv")          # -> DataFrame
+df = read_file("data/sample_data.csv")           # -> DataFrame
 det = detect_fields(df)                            # -> {field_map, detected, missing, notes, confidence}
 cleaned, report = clean(df)                        # -> (DataFrame, dict)；核心字段缺失时 report 含 "error"
 metrics = compute_metrics(cleaned)                 # -> {daily, weekly, monthly, rankings, region_monthly,
@@ -96,7 +96,7 @@ figures = build_figures(metrics)                   # -> dict[str, plotly.Figure]
 
 ## 6. 数据清洗步骤
 
-按 `scripts/clean_data.py` 的顺序执行：
+按 `utils/clean_data.py` 的顺序执行：
 
 1. 列名去首尾空白；2. 删除完全重复行；3. 日期统一为 `datetime`，删除无效日期；
 4. 金额单位归一化为「元」（自动识别元 / 万元 / 亿元）；5. 删除缺失 / 负值销售额；
@@ -117,7 +117,7 @@ figures = build_figures(metrics)                   # -> dict[str, plotly.Figure]
 
 ## 8. 可视化输出规则
 
-使用 Plotly（`scripts/generate_charts.py`）生成交互式图表，遵循：
+使用 Plotly（`utils/generate_charts.py`）生成交互式图表，遵循：
 
 - 趋势 → 折线图（单序列，不加图例，标题即说明）；
 - 排行 / 对比 → 横向条形图，按值从大到小排序，单色；
@@ -134,8 +134,8 @@ figures = build_figures(metrics)                   # -> dict[str, plotly.Figure]
 | 清洗后数据表 | `clean_data.py` → `output/cleaned_data.csv` | CSV（utf-8-sig） |
 | 一组图表 | `generate_charts.py` → `output/charts/*.html` | 单张交互 HTML |
 | 独立 HTML 报告 | `generate_charts.py` → `output/report.html` | 浏览器直接打开，离线可用 |
-| **可视化网页** | `app.py`（Streamlit） | 左图表 / 右指标 + AI 诊断报告 |
-| 自定义多图表生成器 | `generate_html_report.py`（Streamlit） | 选文件 → 配置多组 X/Y/类型 → 一键批量生成 |
+| **可视化网页** | `Home.py`（Streamlit） | 左图表 / 右指标 + AI 诊断报告 |
+| 自定义多图表生成器 | `utils/generate_html_report.py`（Streamlit） | 选文件 → 配置多组 X/Y/类型 → 一键批量生成 |
 
 ## 10. 边界情况处理
 
@@ -155,13 +155,13 @@ figures = build_figures(metrics)                   # -> dict[str, plotly.Figure]
 
 ```bash
 pip install -r requirements.txt
-streamlit run scripts/app.py                              # 可视化网页（推荐，一键全流程）
+streamlit run Home.py                                   # 可视化网页（推荐，一键全流程）
 
-python scripts/read_data.py assets/sample_data.csv        # 读取 + 字段识别
-python scripts/clean_data.py assets/sample_data.csv       # 清洗 → output/cleaned_data.csv
-python scripts/calculate_metrics.py assets/sample_data.csv  # 指标 → output/metrics/*.csv
-python scripts/generate_charts.py assets/sample_data.csv  # 图表 → output/report.html
-streamlit run scripts/generate_html_report.py             # 自定义多图表生成器
+python utils/read_data.py data/sample_data.csv          # 读取 + 字段识别
+python utils/clean_data.py data/sample_data.csv         # 清洗 → output/cleaned_data.csv
+python utils/calculate_metrics.py data/sample_data.csv  # 指标 → output/metrics/*.csv
+python utils/generate_charts.py data/sample_data.csv    # 图表 → output/report.html
+streamlit run utils/generate_html_report.py             # 自定义多图表生成器
 ```
 
-> 示例数据 `assets/sample_data.csv` 为**模拟数据**，仅用于演示，不代表任何真实业务。
+> 示例数据 `data/sample_data.csv` 为**模拟数据**，仅用于演示，不代表任何真实业务。

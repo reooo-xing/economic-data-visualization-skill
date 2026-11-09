@@ -5,22 +5,26 @@
 并以「左图表 / 右指标 + AI 诊断报告」的布局呈现结果。业务逻辑全部在各脚本中，
 本文件只负责调用与展示。
 
-运行：streamlit run scripts/app.py
+运行：streamlit run legacy/app.py
 """
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 
 import pandas as pd
 import streamlit as st
 
-from read_data import CANONICAL_FIELDS, DIMENSION_FIELDS, detect_fields, read_file
+# 让入口能 import utils/ 下的模块
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(PROJECT_ROOT / "utils"))
+
+from read_data import CANONICAL_FIELDS, DIMENSION_FIELDS, detect_fields, find_default_data_file, read_file
 from clean_data import clean
 from calculate_metrics import compute_metrics
 from generate_charts import build_figures, save_html_report
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
-DEFAULT_DATA = PROJECT_ROOT / "assets" / "sample_data.csv"
+DEFAULT_DATA = find_default_data_file(PROJECT_ROOT)
 
 st.set_page_config(page_title="经济数据可视化分析", layout="wide", page_icon="📊")
 
@@ -163,7 +167,7 @@ def main() -> None:
     with st.sidebar:
         st.header("数据源")
         up = st.file_uploader("上传数据文件（CSV / Excel）", type=["csv", "xlsx", "xls"])
-        st.caption("未上传时默认使用 assets/sample_data.csv（模拟数据）。")
+        st.caption("未上传时默认使用 assets/ 或 data/ 中的首个可用 Excel/CSV 文件。")
 
     if up is not None:
         data_path = _save_upload(up)

@@ -113,6 +113,27 @@ def normalize_name(name: Any) -> str:
     return n
 
 
+def find_default_data_file(project_root: str | Path | None = None) -> Path:
+    """返回优先级最高的默认数据文件。优先从 assets/ 选取，缺失时回退到 data/ 或项目根目录。"""
+    root = Path(project_root) if project_root is not None else Path(__file__).resolve().parent.parent
+    candidates: list[Path] = []
+    for base in (root / "assets", root / "data", root):
+        if not base.exists():
+            continue
+        if base.is_file() and base.suffix.lower() in {".csv", ".xlsx", ".xls", ".xlsm"}:
+            candidates.append(base)
+        elif base.is_dir():
+            candidates.extend(
+                p for p in base.iterdir()
+                if p.is_file() and p.suffix.lower() in {".csv", ".xlsx", ".xls", ".xlsm"}
+            )
+    if not candidates:
+        fallback = root / "data" / "sample_data.csv"
+        return fallback
+    candidates = sorted({p.resolve() for p in candidates}, key=lambda p: str(p).lower())
+    return candidates[0]
+
+
 def read_file(path: str | Path) -> pd.DataFrame:
     """读取 CSV / Excel 文件为 DataFrame。"""
     p = Path(path)

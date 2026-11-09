@@ -10,9 +10,9 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-# 让页面脚本能 import scripts/ 下的模块（read_data / clean_data / calculate_metrics / generate_charts / ui_helpers）
-SCRIPTS_DIR = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(SCRIPTS_DIR))
+# 让页面脚本能 import utils/ 下的模块（read_data / clean_data / calculate_metrics / generate_charts / ui_helpers）
+UTILS_DIR = Path(__file__).resolve().parent.parent / "utils"
+sys.path.insert(0, str(UTILS_DIR))
 
 import pandas as pd
 import streamlit as st
@@ -23,7 +23,7 @@ from calculate_metrics import compute_metrics
 from generate_charts import build_figures, save_html_report
 from ui_helpers import AOV_LABELS, UI_CSS, fmt_money
 
-PROJECT_ROOT = SCRIPTS_DIR.parent
+PROJECT_ROOT = UTILS_DIR.parent
 
 
 def run_pipeline(data_path):
