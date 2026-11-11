@@ -26,3 +26,6 @@ assets/
 .idea/
 .DS_Store
 Thumbs.db
+
+# Claude Code 本地技能（含 node_modules 依赖与嵌套 git，不提交）
+.claude/

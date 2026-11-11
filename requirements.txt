@@ -6,6 +6,7 @@ pandas>=2.0           # 数据读取、清洗、聚合（已在 pandas 2.x 与 3
 numpy>=1.24,<3.0      # 数值计算
 openpyxl>=3.1         # 读取 .xlsx / .xlsm
 plotly>=5.18          # 交互式图表 + 独立 HTML 报告（核心可视化）
+openai>=1.0           # 大模型调用（AI 诊断报告页接入 DeepSeek；from openai import OpenAI）
 
 # ---- 交互式网页（推荐） ----
 streamlit>=1.45       # 交互式可视化网页（generate_html_report.py；width="stretch" 需 >=1.45）

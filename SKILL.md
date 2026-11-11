@@ -4,7 +4,7 @@ description: >
   品牌商品流水数据整理与可视化 Agent。当用户提到经济数据分析、数据清洗、销售数据
   可视化、生成图表或可交互网页时触发：读取 data/ 下的数据，自动完成字段识别、
   数据清洗、指标计算与图表生成，并启动 Streamlit 页面展示结果。
-version: "1.1"
+version: "1.2"
 ---
 
 # economic-data-visualization-skill
@@ -13,7 +13,7 @@ version: "1.1"
 
 用户上传一份商品销售流水（Excel / CSV / 数据库查询结果），Skill 自动完成
 「数据读取 → 字段识别 → 数据清洗 → 指标计算 → 可视化输出」全流程，并弹出
-基于 Streamlit 的可视化网页（左图表 / 右指标 + AI 诊断报告）。
+基于 Streamlit 的可视化网页（首页 / 数据看板 / AI 诊断报告 / 原始数据 四页面）。
 
 ## 1. 触发条件（Trigger）
 
@@ -43,7 +43,7 @@ AI 按以下步骤执行：
 4. **指标计算**：调用 `utils/calculate_metrics.py` 的 `compute_metrics()`。
 5. **图表生成**：调用 `utils/generate_charts.py` 的 `build_figures()`。
 6. **启动可视化页面**：运行 `streamlit run Home.py`，浏览器自动打开，
-   以「左侧图表 + 右侧指标与 AI 诊断报告」展示结果。
+   数据看板页以「左侧图表 + 右侧指标明细」呈现，AI 诊断报告 / 原始数据为独立页面。
 
 > 也可逐脚本在命令行执行：
 > `python utils/read_data.py "data/你的数据.xlsx"` →
@@ -60,8 +60,9 @@ AI 按以下步骤执行：
 | 数据读取与字段识别 | `utils/read_data.py` | `read_file()` / `detect_fields()` / `available_fields()` / `overview()` |
 | 数据清洗 | `utils/clean_data.py` | `clean(df) -> (cleaned, report)`，`report["error"]` 表示核心字段缺失 |
 | 指标计算 | `utils/calculate_metrics.py` | `compute_metrics(cleaned) -> dict`，`"__error__"` 表示计算中止 |
-| 图表生成 | `utils/generate_charts.py` | `build_figures(metrics) -> dict[str, Figure]` |
-| **总控应用** | `Home.py` | Streamlit 页面，串联全流程（左图表 / 右指标 + 诊断报告） |
+| 图表生成 | `utils/generate_charts.py` | `build_figures(metrics) -> dict[str, go.Figure | str]`，柱状类可切换图型 |
+| 手写 SVG 图表 | `utils/rung_charts.py` | lieflat「横档柱 / 发丝折线 / 刻度环形」，`build_rung_bars()` / `build_hairline_line()` / `build_tick_donut()` |
+| **总控应用** | `Home.py` | Streamlit 入口（st.navigation），串联全流程，四页面 |
 
 ## 4. 脚本接口（供 AI 调用）
 
@@ -71,14 +72,16 @@ AI 按以下步骤执行：
 from read_data import read_file, detect_fields, overview, available_fields
 from clean_data import clean
 from calculate_metrics import compute_metrics
-from generate_charts import build_figures, save_html_report
+from generate_charts import build_figures, build_html_report, build_bar_variant, bar_type_options, save_html_report
 
 df = read_file("data/sample_data.csv")           # -> DataFrame
 det = detect_fields(df)                            # -> {field_map, detected, missing, notes, confidence}
 cleaned, report = clean(df)                        # -> (DataFrame, dict)；核心字段缺失时 report 含 "error"
 metrics = compute_metrics(cleaned)                 # -> {daily, weekly, monthly, rankings, region_monthly,
                                                    #     monthly_growth, aov, notes} 或 {"__error__": ...}
-figures = build_figures(metrics)                   # -> dict[str, plotly.Figure]
+figures = build_figures(metrics)                   # -> dict[str, go.Figure | str]；
+                                                   #    str = lieflat 手写 SVG（横档柱 / 发丝折线 / 刻度环形），
+                                                   #    go.Figure = Plotly（时序 / 堆叠 / 动画）
 ```
 
 - 清洗后列名为规范列名：`date` / `product_name` / `sku` / `unit_price` / `quantity` /
@@ -117,24 +120,26 @@ figures = build_figures(metrics)                   # -> dict[str, plotly.Figure]
 
 ## 8. 可视化输出规则
 
-使用 Plotly（`utils/generate_charts.py`）生成交互式图表，遵循：
+图表分两类，风格统一遵循 lieflat-charts 的 Mono 灰阶（INK `#1C1C1A` / PAPER `#F0EFEB` / 7 级灰阶，纯墨色、无强调色）：
 
-- 趋势 → 折线图（单序列，不加图例，标题即说明）；
-- 排行 / 对比 → 横向条形图，按值从大到小排序，单色；
-- 占比 → 排名条形图或堆叠柱状图（饼图/环形图因可读性差，默认用排名条形图替代）；
-- 地区月度构成 → 堆叠柱状图（分类色最多 8 类，超出折叠为「其他」）；
+- **柱状类 → 手写 SVG（`utils/rung_charts.py`）**：
+  - 排行 / 月度销售额 / 占比默认用「横档柱」（Rung Bars，柱身 = 一格格明度不同的横档）；
+  - 月度销售额可切换「发丝折线」（Hairline Line：描线入场 + 逐点弹入 + 峰值标注）；
+  - 排行 / 占比可切换「刻度环形」（Tick Donut：1 格 = 1%，中心标注数据说明，外侧「名称 · 占比」）；
+  - 数据看板通过 `bar_type_options()` / `build_bar_variant()` 切换，SVG 可离线、带入场动效、`prefers-reduced-motion` 降级。
+- **时序 / 堆叠 / 动画 → Plotly（可缩放悬停）**：每日销售额 / 销量趋势（发丝折线 + 区间滑块）、地区月度构成堆叠图与动画。
+- 分类超 6 类折叠为「其他」（灰阶阶梯最多 7 级）；
 - **不使用双轴图**；金额与数量分开成图；
-- 图表自带悬停提示、缩放；每日趋势图带区间滑块；
 - **动态字段**：图表与筛选框按数据中实际存在的字段生成，缺失的字段自动隐藏跳过，绝不报错。
 
 ## 9. 输出物清单
 
 | 输出物 | 来源 | 说明 |
 |--------|------|------|
-| 清洗后数据表 | `clean_data.py` → `output/cleaned_data.csv` | CSV（utf-8-sig） |
-| 一组图表 | `generate_charts.py` → `output/charts/*.html` | 单张交互 HTML |
-| 独立 HTML 报告 | `generate_charts.py` → `output/report.html` | 浏览器直接打开，离线可用 |
-| **可视化网页** | `Home.py`（Streamlit） | 左图表 / 右指标 + AI 诊断报告 |
+| 清洗后数据表 | 网页「数据源与下载」或 `clean_data.py` CLI | CSV（utf-8-sig）；网页直接浏览器下载，CLI 写 `output/cleaned_data.csv` |
+| 一组图表 | `generate_charts.py` CLI → `output/charts/*.html` | 单张 HTML（SVG 内联 / Plotly 引 CDN） |
+| 独立 HTML 报告 | 网页「下载 HTML 报告」或 `generate_charts.py` CLI | 浏览器直接打开、离线可用；网页下载文件名带「筛选/全量」标记 + 时间戳 |
+| **可视化网页** | `Home.py`（Streamlit） | 首页 / 数据看板 / AI 诊断报告 / 原始数据 |
 | 自定义多图表生成器 | `utils/generate_html_report.py`（Streamlit） | 选文件 → 配置多组 X/Y/类型 → 一键批量生成 |
 
 ## 10. 边界情况处理

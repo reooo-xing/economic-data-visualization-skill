@@ -77,43 +77,52 @@ def load_data(data_path: Path = DEFAULT_DATA) -> None:
 
 
 def render_home() -> None:
-    """首页：项目简介 + 功能入口卡片 + SKILL 使用说明。"""
-    st.title("📊 经济数据可视化分析系统")
-    st.caption("品牌商品流水数据整理与可视化 · 多页面专业 BI 系统")
+    """首页：突出「进入数据看板」主入口，其余功能为可点击卡。"""
+    st.title("经济数据可视化分析系统")
+    st.caption("品牌商品流水 · 数据清洗与可视化 · 多页面 BI")
 
-    st.markdown("### 项目简介")
-    st.markdown(
-        "本系统自动完成「**数据读取 → 字段识别 → 数据清洗 → 指标计算 → 可视化输出**」"
-        "全流程，适用于品牌商品销售流水数据（Excel / CSV）。"
+    # 主入口（唯一焦点）：整行宽、置顶
+    st.page_link(
+        dashboard_page,
+        label="进入数据看板",
+        icon="📊",
+        use_container_width=True,
+        help="查看核心指标、图表与动态钻取筛选",
     )
 
+    # 次要入口：两列并排的可点击卡
+    c1, c2 = st.columns(2, gap="medium")
+    with c1:
+        st.page_link(
+            diagnosis_page,
+            label="AI 诊断报告",
+            icon="🤖",
+            use_container_width=True,
+            help="让 AI 分析数据、解读指标",
+        )
+    with c2:
+        st.page_link(
+            raw_page,
+            label="原始数据",
+            icon="🧾",
+            use_container_width=True,
+            help="清洗前后数据对比与明细查看",
+        )
+
+    # 当前数据摘要
     cleaned = st.session_state.get("cleaned_df")
     rows = f"{cleaned.shape[0]:,}" if cleaned is not None else "—"
-    st.info(
-        f"当前数据文件：`{Path(st.session_state.get('data_path', DEFAULT_DATA)).name}`"
-        f"（清洗后 {rows} 行）。"
+    st.caption(
+        f"当前数据：`{Path(st.session_state.get('data_path', DEFAULT_DATA)).name}`"
+        f"（清洗后 {rows} 行）"
     )
 
-    st.markdown("### 功能入口")
-    cards = [
-        ("📊", "数据看板", "核心图表与指标，支持时间 / 商品 / 地区动态钻取。"),
-        ("🤖", "AI 诊断报告", "字段识别、清洗结论与指标发现的规则化诊断文本。"),
-        ("🧾", "原始数据", "清洗前后的数据对比与明细查看。"),
-    ]
-    cols = st.columns(3)
-    for col, (icon, title, desc) in zip(cols, cards):
-        with col:
-            st.markdown(
-                f'<div class="feature-card">'
-                f'<div class="fc-icon">{icon}</div>'
-                f'<div class="fc-title">{title}</div>'
-                f'<p class="fc-desc">{desc}</p>'
-                f'</div>',
-                unsafe_allow_html=True,
-            )
-
-    st.divider()
-    st.markdown("#### 使用左侧导航切换到各页面 👈")
+    # 项目简介降级到折叠区
+    with st.expander("关于本系统"):
+        st.markdown(
+            "自动完成「数据读取 → 字段识别 → 数据清洗 → 指标计算 → 可视化输出」全流程，"
+            "适用于品牌商品销售流水数据（Excel / CSV）。"
+        )
 
 
 # 定义页面：首页用函数，其余页面用文件路径（放在 pages/）。

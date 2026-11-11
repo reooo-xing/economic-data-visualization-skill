@@ -1,0 +1,8 @@
+# Streamlit 界面主题（lieflat-charts Mono 灰阶）
+[theme]
+base = "light"
+primaryColor = "#1C1C1A"              # 炭黑：按钮 / 链接 / 选中态
+backgroundColor = "#F0EFEB"           # 纸灰：页面底色
+secondaryBackgroundColor = "#E7E6E0"  # 侧边栏 / 次级容器
+textColor = "#1C1C1A"                 # 墨黑：正文
+font = "Inter"                        # lieflat 指定字体（无网络时回退系统无衬线）

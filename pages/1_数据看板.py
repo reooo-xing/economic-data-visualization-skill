@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import sys
+from datetime import datetime
 from pathlib import Path
 
 # 让页面脚本能 import utils/ 下的模块（read_data / clean_data / calculate_metrics / generate_charts / ui_helpers）
@@ -20,7 +21,7 @@ import streamlit as st
 from read_data import DIMENSION_FIELDS, detect_fields, read_file
 from clean_data import clean
 from calculate_metrics import compute_metrics
-from generate_charts import build_figures, save_html_report
+from generate_charts import bar_type_options, build_bar_variant, build_chart_meta, build_figures, build_html_report
 from ui_helpers import AOV_LABELS, UI_CSS, fmt_money
 
 PROJECT_ROOT = UTILS_DIR.parent
@@ -128,7 +129,7 @@ def apply_filters(df: pd.DataFrame) -> pd.DataFrame:
 def render_sidebar_bottom() -> None:
     """侧边栏底部：导入数据源 / 导出 HTML 报告 / 下载清洗后 CSV。"""
     st.sidebar.divider()
-    st.sidebar.subheader("📥 数据源与导出")
+    st.sidebar.subheader("📥 数据源与下载")
 
     # 1) 导入数据源
     up = st.sidebar.file_uploader("导入数据源", type=["csv", "xlsx", "xls"])
@@ -144,19 +145,28 @@ def render_sidebar_bottom() -> None:
         st.sidebar.info("请先上传数据源")
         return
 
-    # 2) 导出 HTML 报告（所见即所得：优先导出当前筛选后的图表）
-    if st.sidebar.button("导出 HTML 报告"):
-        # filtered_figures 由 main() 每次运行时根据当前筛选实时计算；
-        # 无筛选时它等于全量图表；若因异常缺失，则回退到全量 figures。
-        figures = st.session_state.get("filtered_figures")
-        if figures is None:
-            figures = st.session_state.get("figures") or {}
-        if not figures:
-            st.sidebar.warning("当前没有可导出的图表。")
-        else:
-            out_path = PROJECT_ROOT / "output" / "report.html"
-            save_html_report(figures, out_path, title="销售数据可视化报告")
-            st.sidebar.success(f"已生成：{out_path.relative_to(PROJECT_ROOT)}")
+    # 2) 下载 HTML 报告（所见即所得：优先导出当前筛选后的图表，浏览器直接下载）
+    # filtered_figures / filtered_meta 由 main() 每次运行时根据当前筛选实时计算；
+    # 无筛选时它们等于全量图表与文案；若因异常缺失，则回退到 Home.py 缓存的全量 figures。
+    figures = st.session_state.get("filtered_figures")
+    meta = st.session_state.get("filtered_meta") or {}
+    if figures is None:
+        figures = st.session_state.get("figures") or {}
+    if not figures:
+        st.sidebar.info("当前没有可导出的图表。")
+    else:
+        html = build_html_report(figures, title="销售数据可视化报告", meta=meta)
+        # 文件名带筛选标记 + 时间戳，避免覆盖历史导出
+        f_rows = st.session_state.get("filtered_rows")
+        c_rows = st.session_state.get("cleaned_rows")
+        tag = "筛选" if (c_rows and f_rows is not None and f_rows != c_rows) else "全量"
+        fname = f"销售数据可视化报告_{tag}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.html"
+        st.sidebar.download_button(
+            label="下载 HTML 报告",
+            data=html.encode("utf-8"),
+            file_name=fname,
+            mime="text/html",
+        )
 
     # 3) 下载清洗后 CSV
     csv_data = cleaned.to_csv(index=False).encode("utf-8-sig")
@@ -168,16 +178,45 @@ def render_sidebar_bottom() -> None:
     )
 
 
-def _render_figures(figures: dict, batch_size: int = 3) -> None:
-    """分批渲染图表并用进度条提示进度，减少一次性刷新带来的闪烁感。"""
+def _render_chart_card(name: str, fig, m: dict, metrics: dict) -> None:
+    """按 lieflat 卡片排版渲染：结论标题 + 副标题 + 图表 + 注释 + 来源行。
+
+    fig 为 str 时是 lieflat「横档柱」SVG（直接内联渲染）；
+    否则是 Plotly 图（时间序列 / 堆叠 / 动画），走 st.plotly_chart。
+    柱状类图表上方额外渲染「图表类型」切换控件。
+    """
+    title = m.get("title") or name
+    st.markdown(f'<h3 class="chart-title">{title}</h3>', unsafe_allow_html=True)
+    if m.get("subtitle"):
+        st.markdown(f'<div class="chart-sub">{m["subtitle"]}</div>', unsafe_allow_html=True)
+
+    # 图表类型切换（仅对柱状类图表显示，默认保持「横档柱」）
+    options = bar_type_options(name, metrics)
+    if options:
+        sel = st.segmented_control(
+            "图表类型", options, default=options[0],
+            key=f"ctype_{name}", label_visibility="collapsed",
+        )
+        if sel and sel != options[0]:
+            fig = build_bar_variant(name, metrics, sel) or fig
+
+    if isinstance(fig, str):
+        st.markdown(f'<div class="rung-chart">{fig}</div>', unsafe_allow_html=True)
+    else:
+        st.plotly_chart(fig, width="stretch", key=f"dash_fig_{name}")
+    if m.get("note"):
+        st.markdown(f'<div class="chart-note">💡 {m["note"]}</div>', unsafe_allow_html=True)
+    if m.get("source"):
+        st.markdown(f'<div class="chart-src">{m["source"]}</div>', unsafe_allow_html=True)
+
+
+def _render_figures(figures: dict, meta: dict, metrics: dict) -> None:
+    """逐张渲染图表卡片，并用进度条提示进度。"""
     items = list(figures.items())
     prog = st.progress(0.0, text="正在渲染图表…")
-    for i in range(0, len(items), batch_size):
-        batch = items[i : i + batch_size]
-        for name, fig in batch:
-            st.plotly_chart(fig, width="stretch", key=f"dash_fig_{name}")
-        done = i + len(batch)
-        prog.progress(min(done / len(items), 1.0), text=f"已渲染 {done} / {len(items)} 张图表")
+    for i, (name, fig) in enumerate(items):
+        _render_chart_card(name, fig, (meta or {}).get(name, {}), metrics)
+        prog.progress((i + 1) / len(items), text=f"已渲染 {i + 1} / {len(items)} 张图表")
     prog.empty()
 
 
@@ -197,14 +236,18 @@ def main() -> None:
     # 基于筛选后的数据实时重算指标与图表，并缓存到 session_state，
     # 使「导出 HTML 报告」能导出当前筛选结果（所见即所得）。
     # 无筛选时 filtered == cleaned，因此 filtered_figures 即全量图表。
-    metrics, figures = None, {}
+    metrics, figures, meta = None, {}, {}
     if filtered is not None and not filtered.empty:
         with st.spinner("正在生成可视化图表…"):
             m = compute_metrics(filtered)
             if "__error__" not in m:
                 metrics = m
                 figures = build_figures(m)
+                meta = build_chart_meta(m)
     st.session_state["filtered_figures"] = figures
+    st.session_state["filtered_meta"] = meta
+    st.session_state["filtered_rows"] = 0 if filtered is None else len(filtered)
+    st.session_state["cleaned_rows"] = 0 if cleaned is None else len(cleaned)
 
     # 侧边栏底部：导入 / 导出 / 下载（导出使用上方缓存的 filtered_figures）
     render_sidebar_bottom()
@@ -250,20 +293,20 @@ def main() -> None:
         if not figures:
             st.info("没有可生成的图表（字段不足）。")
         else:
-            _render_figures(figures)
+            _render_figures(figures, meta, metrics)
 
     with right:
         st.subheader("指标明细")
         for key, label in DIMENSION_FIELDS.items():
             table = (metrics.get("rankings") or {}).get(key)
             if isinstance(table, pd.DataFrame) and not table.empty:
-                with st.expander(f"{label}排行（Top 5）"):
+                with st.expander(f"{label}排行（Top 5）", expanded=True):
                     show_cols = [c for c in [key, "销售额", "销售额占比"] if c in table.columns]
                     st.dataframe(table.head(5)[show_cols])
         for key, label in [("daily", "每日"), ("weekly", "每周"), ("monthly", "每月")]:
             t = metrics.get(key)
             if isinstance(t, pd.DataFrame) and not t.empty:
-                with st.expander(f"{label}汇总"):
+                with st.expander(f"{label}汇总", expanded=True):
                     st.dataframe(t)
 
 
